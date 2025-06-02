@@ -5,6 +5,7 @@ pub struct Config {
     pub device: String,
     pub rom: String,
     pub version: String,
+    pub android_version: String,
     pub patches: Vec<String>,
     pub signing: Option<SigningConfig>,
     pub output: OutputConfig,

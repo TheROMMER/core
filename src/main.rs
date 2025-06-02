@@ -31,8 +31,8 @@ async fn main() -> Result<()> {
         .with_context(|| format!("Failed to read config file '{}'", args.config))?;
     let config: Config = serde_yaml::from_str(&config_content)
         .with_context(|| "Failed to parse ROMMER.yaml")?;
-    print_success(&format!("📱 Device: {} | 🔧 Base ROM: {} | 📦 Version: {}", 
-        config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version));
+    print_success(&format!("📱 Device: {} | 🔧 Base ROM: {} | 📦 Version: {} | Android Version: {}", 
+        config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version, config.android_version));
 
     let romzip_path = if args.romzip == ".download" {
         download_rom(&config).await?
@@ -85,6 +85,10 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
         .progress_chars("█▉▊▋▌▍▎▏  "));
     let rom_filename = format!("{}_{}_{}.zip", config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version);
     let rom_path = PathBuf::from(&rom_filename);
+    if rom_path.exists() {
+        print_info("File already exists! using the existing file...");
+        return Ok(rom_path);
+    }
     let mut file = fs::File::create(&rom_path)
         .with_context(|| format!("Failed to create file '{}'", rom_filename))?;
     let mut downloaded = 0u64;

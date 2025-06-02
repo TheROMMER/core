@@ -1,6 +1,7 @@
 device: garnet # of course.
 rom: https://netix.dl.sourceforge.net/project/evolution-x/garnet/15/EvolutionX-15.0-20250522-garnet-10.6-Official.zip?viasf=1
 version: latest
+android_version: 15
 
 patches:
   - patches/remove_bloatware_patch/ # dummy
