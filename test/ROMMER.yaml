@@ -1,10 +1,10 @@
-device: crownlte
+device: garnet # of course.
 rom: https://netix.dl.sourceforge.net/project/evolution-x/garnet/15/EvolutionX-15.0-20250522-garnet-10.6-Official.zip?viasf=1
 version: latest
 
 patches:
-  - patches/remove_bloatware_patch/
-  - patches/custom_bootanimation_patch/
+  - patches/remove_bloatware_patch/ # dummy
+  - patches/custom_bootanimation_patch/ # dummy
 
 signing:
   enabled: true
@@ -12,5 +12,5 @@ signing:
   cert_path: ./keys/releasekey.x509.pem
 
 output:
-  filename: lineageos-crownlte-custom.zip
+  filename: evox-garnet-custom.zip
   compression_level: 6

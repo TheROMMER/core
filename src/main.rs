@@ -212,15 +212,13 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 }
 
 fn print_banner() {
-    println!("\n{}", "=".repeat(60));
-    println!("🔧 ROMMER - #KeepROMMING");
-    println!("{}\n", "=".repeat(60));
+    print_section("🔧 ROMMER");
+    println!(""); // newline. very creative
 }
-
 fn print_section(title: &str) {
-    println!("\n{}", "─".repeat(50));
-    println!("🔹 {}", title);
-    println!("{}", "─".repeat(50));
+    println!("\n{}", "─".repeat(22));
+    println!(" {}", title);
+    println!("{}", "─".repeat(22));
 }
 
 fn print_success(msg: &str) {
