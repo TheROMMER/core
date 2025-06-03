@@ -35,6 +35,12 @@ Customizing Android ROMs typically requires either building from source (which i
 
 ## Installation
 
+From [crates.io](https://crates.io/crates/rommer):
+```bash
+cargo install rommer
+```
+
+From source:
 ```bash
 git clone https://github.com/TheROMMER/core.git
 cd rommer
