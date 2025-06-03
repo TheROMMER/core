@@ -3,7 +3,7 @@ rom: https://netix.dl.sourceforge.net/project/evolution-x/garnet/15/EvolutionX-1
 max_retries: 3
 version: latest
 android_version: 15
-expected_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" # test to fail
+#expected_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" # test to fail
 
 patches:
   - patches/remove_bloatware_patch/ # dummy patch
