@@ -32,12 +32,18 @@ struct Args {
 
     #[arg(short, long, help = "Override cleanup setting from config")]
     no_cleanup: bool,
+
+    #[arg(short, long, help = "Skip signing the final ROM")]
+    skip_signing: bool,
+
+    #[arg(short, long, help = "Running in dry-run mode")]
+    dry_run: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    print_banner();
     let args = Args::parse();
+    print_banner(args.dry_run);
     let config_content = fs::read_to_string(&args.config)
         .with_context(|| format!("Failed to read config file '{}'", args.config))?;
     let mut config: Config = serde_yaml::from_str(&config_content)
@@ -45,11 +51,11 @@ async fn main() -> Result<()> {
     if args.no_cleanup {
         config.cleanup = false;
     }
-    print_success(&format!("📱 Device: {} | 🔧 Base ROM: {} | 📦 Version: {} | Android Version: {}", 
-        config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version, config.android_version));
+    print_success(&format!("📱 Device: {} | 🔧 Base ROM: {} | 📦 Version: {} | Android Version: {}",
+                           config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version, config.android_version));
 
     let romzip_path = if args.romzip == ".download" {
-        download_rom(&config).await?
+        download_rom(&config, args.dry_run).await?
     } else {
         let expanded = shellexpand::tilde(&args.romzip);
         PathBuf::from(expanded.to_string())
@@ -57,7 +63,7 @@ async fn main() -> Result<()> {
 
     let tmp_dir = tempdir().context("Failed to create temp dir")?;
     print_info(&format!("🗂️  Working directory: {}", tmp_dir.path().display()));
-    unzip_rom(&romzip_path, tmp_dir.path())?;
+    unzip_rom(&romzip_path, tmp_dir.path(), args.dry_run)?;
     print_section("🔧 APPLYING PATCHES");
     for (i, patch_folder) in config.patches.iter().enumerate() {
         let patch_path = Path::new(patch_folder);
@@ -66,31 +72,35 @@ async fn main() -> Result<()> {
             continue;
         }
 
-        print_info(&format!("[{}/{}] Applying patch '{}'", 
-            i + 1, config.patches.len(), patch_folder));
-        copy_dir_all(patch_path, tmp_dir.path())
+        print_info(&format!("[{}/{}] Applying patch '{}'",
+                            i + 1, config.patches.len(), patch_folder));
+        copy_dir_all(patch_path, tmp_dir.path(), args.dry_run)
             .with_context(|| format!("Failed to copy patch folder '{}'", patch_folder))?;
-        handle_deletions(patch_path, tmp_dir.path(), ".rommerdel", "directory")?;
-        handle_file_deletions(patch_path, tmp_dir.path(), ".rommerfdel", "file")?;
+        handle_deletions(patch_path, tmp_dir.path(), ".rommerdel", "directory", args.dry_run)?;
+        handle_file_deletions(patch_path, tmp_dir.path(), ".rommerfdel", "file", args.dry_run)?;
     }
     let kept_path = tmp_dir.keep();
     print_section("✅ PATCHING COMPLETE");
     print_success(&format!("📂 Patched ROM: {}", kept_path.display()));
-    let final_rom_path = finalize_rom(&kept_path, &config).await?;
+    let final_rom_path = finalize_rom(&kept_path, &config, args.dry_run).await?;
     print_success(&format!("🎉 Final ROM: {}", final_rom_path.display()));
     Ok(())
 }
 
-async fn finalize_rom(tmp_dir: &Path, config: &Config) -> Result<PathBuf> {
+async fn finalize_rom(tmp_dir: &Path, config: &Config, dry_run: bool) -> Result<PathBuf> {
     let output_filename = config.output.filename.clone();
     let output_path = PathBuf::from(&output_filename);
-    rezip_rom(tmp_dir, &output_path)?;
-    sign_rom(&output_path, config).await?;
+    rezip_rom(tmp_dir, &output_path, dry_run)?;
+    sign_rom(&output_path, config, dry_run).await?;
     if config.cleanup {
-        print_info("🧹 Cleaning up temporary files...");
-        match fs::remove_dir_all(tmp_dir) {
-            Ok(_) => print_success("✅ Temporary files cleaned up successfully"),
-            Err(e) => print_warning(&format!("⚠️ Failed to clean up temporary files: {}", e)),
+        if dry_run {
+            print_info("🔍 DRY RUN: Would clean up temporary files...");
+        } else {
+            print_info("🧹 Cleaning up temporary files...");
+            match fs::remove_dir_all(tmp_dir) {
+                Ok(_) => print_success("✅ Temporary files cleaned up successfully"),
+                Err(e) => print_warning(&format!("⚠️ Failed to clean up temporary files: {}", e)),
+            }
         }
     } else {
         print_info(&format!("💾 Keeping temporary files at: {}", tmp_dir.display()));
@@ -99,8 +109,17 @@ async fn finalize_rom(tmp_dir: &Path, config: &Config) -> Result<PathBuf> {
     Ok(output_path)
 }
 
-fn rezip_rom(source_dir: &Path, output_path: &Path) -> Result<()> {
+fn rezip_rom(source_dir: &Path, output_path: &Path, dry_run: bool) -> Result<()> {
     print_section("📦 CREATING FLASHABLE ZIP");
+
+    if dry_run {
+        print_info(&format!("🔍 DRY RUN: Would create zip file: {}", output_path.display()));
+        let _walker = WalkDir::new(source_dir).into_iter();
+        let total_files = WalkDir::new(source_dir).into_iter().count();
+        print_info(&format!("🔍 DRY RUN: Would compress {} files", total_files));
+        return Ok(());
+    }
+
     let file = File::create(output_path)
         .with_context(|| format!("Failed to create output zip '{}'", output_path.display()))?;
     let mut zip = ZipWriter::new(file);
@@ -127,32 +146,44 @@ fn rezip_rom(source_dir: &Path, output_path: &Path) -> Result<()> {
         }
         pb.inc(1);
     }
-    
+
     zip.finish()?;
     pb.finish_with_message("Rezip complete!");
     print_success(&format!("📦 Created: {}", output_path.display()));
     Ok(())
 }
 
-async fn sign_rom(zip_path: &Path, config: &Config) -> Result<()> {
+async fn sign_rom(zip_path: &Path, config: &Config, dry_run: bool) -> Result<()> {
+    let args = Args::parse();
     print_section("✍️  SIGNING ROM");
-    if let Some(signing_config) = &config.signing {
-        match signing_config.method.as_str() {
-            "apksigner" => sign_with_apksigner(zip_path, signing_config).await,
-            "jarsigner" => sign_with_jarsigner(zip_path, signing_config).await,
-            "custom" => sign_with_custom_command(zip_path, signing_config).await,
-            _ => {
-                print_warning("Unknown signing method, skipping signature");
-                Ok(())
+    if args.skip_signing {
+        if let Some(signing_config) = &config.signing {
+            match signing_config.method.as_str() {
+                "apksigner" => sign_with_apksigner(zip_path, signing_config, dry_run).await,
+                "jarsigner" => sign_with_jarsigner(zip_path, signing_config, dry_run).await,
+                "custom" => sign_with_custom_command(zip_path, signing_config, dry_run).await,
+                _ => {
+                    print_warning("Unknown signing method, skipping signature");
+                    Ok(())
+                }
             }
+        } else {
+            create_test_signature(zip_path, dry_run).await
         }
     } else {
-        print_info("No signing configuration found, creating test signature");
-        create_test_signature(zip_path).await
+        print_info("Skipping signing");
+        Ok(())
     }
 }
 
-async fn sign_with_apksigner(zip_path: &Path, signing_config: &SigningConfig) -> Result<()> {
+async fn sign_with_apksigner(zip_path: &Path, signing_config: &SigningConfig, dry_run: bool) -> Result<()> {
+    if dry_run {
+        print_info("🔍 DRY RUN: Would sign ROM with apksigner");
+        print_info(&format!("🔍 DRY RUN: Keystore: {}", signing_config.keystore_path));
+        print_info(&format!("🔍 DRY RUN: Key alias: {}", signing_config.key_alias));
+        return Ok(());
+    }
+
     let output = Command::new("apksigner")
         .arg("sign")
         .arg("--ks")
@@ -174,11 +205,18 @@ async fn sign_with_apksigner(zip_path: &Path, signing_config: &SigningConfig) ->
     } else {
         return Err(anyhow::anyhow!("apksigner failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
-    
+
     Ok(())
 }
 
-async fn sign_with_jarsigner(zip_path: &Path, signing_config: &SigningConfig) -> Result<()> {
+async fn sign_with_jarsigner(zip_path: &Path, signing_config: &SigningConfig, dry_run: bool) -> Result<()> {
+    if dry_run {
+        print_info("🔍 DRY RUN: Would sign ROM with jarsigner");
+        print_info(&format!("🔍 DRY RUN: Keystore: {}", signing_config.keystore_path));
+        print_info(&format!("🔍 DRY RUN: Key alias: {}", signing_config.key_alias));
+        return Ok(());
+    }
+
     let output = Command::new("jarsigner")
         .arg("-verbose")
         .arg("-sigalg")
@@ -201,12 +239,19 @@ async fn sign_with_jarsigner(zip_path: &Path, signing_config: &SigningConfig) ->
     } else {
         return Err(anyhow::anyhow!("jarsigner failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
-    
+
     Ok(())
 }
 
-async fn sign_with_custom_command(zip_path: &Path, signing_config: &SigningConfig) -> Result<()> {
+async fn sign_with_custom_command(zip_path: &Path, signing_config: &SigningConfig, dry_run: bool) -> Result<()> {
     if let Some(custom_command) = &signing_config.custom_command {
+        if dry_run {
+            print_info("🔍 DRY RUN: Would sign ROM with custom command");
+            let command_with_path = custom_command.replace("{zip_path}", &zip_path.to_string_lossy());
+            print_info(&format!("🔍 DRY RUN: Command: {}", command_with_path));
+            return Ok(());
+        }
+
         let command_with_path = custom_command.replace("{zip_path}", &zip_path.to_string_lossy());
         let output = Command::new("sh")
             .arg("-c")
@@ -220,18 +265,24 @@ async fn sign_with_custom_command(zip_path: &Path, signing_config: &SigningConfi
             return Err(anyhow::anyhow!("Custom signing command failed: {}", String::from_utf8_lossy(&output.stderr)));
         }
     }
-    
+
     Ok(())
 }
 
-async fn create_test_signature(zip_path: &Path) -> Result<()> {
+async fn create_test_signature(zip_path: &Path, dry_run: bool) -> Result<()> {
+    if dry_run {
+        print_info("🔍 DRY RUN: Would create test signature");
+        print_info("🔍 DRY RUN: Would generate test keys if needed");
+        return Ok(());
+    }
+
     let test_key_path = "test_key.p8";
     let test_cert_path = "test_cert.x509.pem";
     if !Path::new(test_key_path).exists() || !Path::new(test_cert_path).exists() {
         print_info("Generating test keys for signing...");
         generate_test_keys(test_key_path, test_cert_path).await?;
     }
-    
+
     let output = Command::new("python3")
         .arg("-c")
         .arg(&format!(r#"
@@ -251,7 +302,7 @@ with zipfile.ZipFile(zip_path, 'a') as zf:
             content = f.read()
             sha256_hash = hashlib.sha256(content).digest()
             manifest += f'Name: {{info.filename}}\nSHA-256-Digest: {{sha256_hash.hex()}}\n\n'
-    
+
     zf.writestr('META-INF/MANIFEST.MF', manifest)
     zf.writestr('META-INF/CERT.SF', 'Signature-Version: 1.0\nCreated-By: ROMMER\n\n')
     zf.writestr('META-INF/CERT.RSA', b'test_signature_placeholder')
@@ -266,29 +317,37 @@ print('Test signature added')
     } else {
         print_warning(&format!("Test signature creation failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
-    
+
     Ok(())
 }
 
 async fn generate_test_keys(key_path: &str, cert_path: &str) -> Result<()> {
     let output = Command::new("openssl")
-        .args(&["req", "-x509", "-newkey", "rsa:2048", "-keyout", key_path, 
-               "-out", cert_path, "-days", "365", "-nodes", "-subj", 
-               "/C=US/ST=Test/L=Test/O=ROMMER/CN=test"])
+        .args(&["req", "-x509", "-newkey", "rsa:2048", "-keyout", key_path,
+            "-out", cert_path, "-days", "365", "-nodes", "-subj",
+            "/C=US/ST=Test/L=Test/O=ROMMER/CN=test"])
         .output()
         .context("Failed to generate test keys with openssl")?;
 
     if !output.status.success() {
         return Err(anyhow::anyhow!("OpenSSL key generation failed: {}", String::from_utf8_lossy(&output.stderr)));
     }
-    
+
     Ok(())
 }
 
-async fn download_rom(config: &Config) -> Result<PathBuf> {
+async fn download_rom(config: &Config, dry_run: bool) -> Result<PathBuf> {
     print_section("📥 DOWNLOADING ROM");
     let download_url = construct_download_url(config)?;
     print_info(&format!("🌐 URL: {}", download_url));
+
+    if dry_run {
+        print_info("🔍 DRY RUN: Would download ROM from URL");
+        let rom_filename = format!("{}_{}_{}.zip", config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version);
+        print_info(&format!("🔍 DRY RUN: Would save as: {}", rom_filename));
+        return Ok(PathBuf::from(rom_filename));
+    }
+
     let max_retries: u32 = config.max_retries;
     const RETRY_DELAY_MS: u64 = 2000;
     let client = reqwest::Client::new();
@@ -373,7 +432,7 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
             } else { 0.0 };
             let elapsed = pb.elapsed().as_secs_f64();
             if elapsed > 0.0 {
-                let speed = downloaded as f64 / elapsed / 1024.0 / 1024.0; // MiB/s
+                let speed = downloaded as f64 / elapsed / 1024.0 / 1024.0;
                 pb.set_message(format!("{}% • {:.2} MiB/s", progress_percentage as u32, speed));
             } else {
                 pb.set_message(format!("{}%", progress_percentage as u32));
@@ -410,8 +469,14 @@ fn construct_download_url(config: &Config) -> Result<String> {
     }
 }
 
-fn unzip_rom(zip_path: &Path, out_dir: &Path) -> Result<()> {
+fn unzip_rom(zip_path: &Path, out_dir: &Path, dry_run: bool) -> Result<()> {
     print_section("📦 EXTRACTING ROM");
+
+    if dry_run {
+        print_info(&format!("🔍 DRY RUN: Would extract files to: {}", out_dir.display()));
+        return Ok(());
+    }
+
     let file = File::open(zip_path)
         .with_context(|| format!("Failed to open zip file '{}'", zip_path.display()))?;
     let mut archive = ZipArchive::new(file).context("Failed to read zip archive")?;
@@ -441,32 +506,40 @@ fn unzip_rom(zip_path: &Path, out_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-fn handle_deletions(patch_path: &Path, tmp_dir: &Path, filename: &str, item_type: &str) -> Result<()> {
+fn handle_deletions(patch_path: &Path, tmp_dir: &Path, filename: &str, item_type: &str, dry_run: bool) -> Result<()> {
     let del_path = patch_path.join(filename);
     if del_path.exists() {
         let items_to_delete = read_paths(&del_path)?;
         for item in items_to_delete {
             let full_path = tmp_dir.join(&item);
             if full_path.exists() && full_path.is_dir() {
-                fs::remove_dir_all(&full_path)
-                    .with_context(|| format!("Failed to delete {} '{}'", item_type, full_path.display()))?;
-                print_info(&format!("🗑️  Deleted {}: {}", item_type, item.display()));
+                if dry_run {
+                    print_info(&format!("🔍 DRY RUN: Would delete {}: {}", item_type, item.display()));
+                } else {
+                    fs::remove_dir_all(&full_path)
+                        .with_context(|| format!("Failed to delete {} '{}'", item_type, full_path.display()))?;
+                    print_info(&format!("🗑️  Deleted {}: {}", item_type, item.display()));
+                }
             }
         }
     }
     Ok(())
 }
 
-fn handle_file_deletions(patch_path: &Path, tmp_dir: &Path, filename: &str, item_type: &str) -> Result<()> {
+fn handle_file_deletions(patch_path: &Path, tmp_dir: &Path, filename: &str, item_type: &str, dry_run: bool) -> Result<()> {
     let del_path = patch_path.join(filename);
     if del_path.exists() {
         let items_to_delete = read_paths(&del_path)?;
         for item in items_to_delete {
             let full_path = tmp_dir.join(&item);
             if full_path.exists() && full_path.is_file() {
-                fs::remove_file(&full_path)
-                    .with_context(|| format!("Failed to delete {} '{}'", item_type, full_path.display()))?;
-                print_info(&format!("🗑️  Deleted {}: {}", item_type, item.display()));
+                if dry_run {
+                    print_info(&format!("🔍 DRY RUN: Would delete {}: {}", item_type, item.display()));
+                } else {
+                    fs::remove_file(&full_path)
+                        .with_context(|| format!("Failed to delete {} '{}'", item_type, full_path.display()))?;
+                    print_info(&format!("🗑️  Deleted {}: {}", item_type, item.display()));
+                }
             }
         }
     }
@@ -485,13 +558,30 @@ fn read_paths(file_path: &Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
-fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>, dry_run: bool) -> io::Result<()> {
+    if dry_run {
+        let mut file_count = 0;
+        let mut dir_count = 0;
+        for entry in WalkDir::new(&src) {
+            if let Ok(entry) = entry {
+                if entry.file_type().is_file() {
+                    file_count += 1;
+                } else if entry.file_type().is_dir() {
+                    dir_count += 1;
+                }
+            }
+        }
+        println!("🔍 DRY RUN: Would copy {} files and {} directories from {} to {}",
+                 file_count, dir_count, src.as_ref().display(), dst.as_ref().display());
+        return Ok(());
+    }
+
     fs::create_dir_all(&dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         if ty.is_dir() {
-            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()), dry_run)?;
         } else {
             fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
         }
@@ -499,8 +589,12 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
     Ok(())
 }
 
-fn print_banner() {
-    print_section("🔧 ROMMER");
+fn print_banner(dry_run: bool) {
+    if dry_run {
+        print_section("🔧 ROMMER (DRY RUN MODE)");
+    } else {
+        print_section("🔧 ROMMER");
+    }
     println!();
 }
 

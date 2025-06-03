@@ -53,11 +53,21 @@ cargo install --path .
 # Run with default config file (ROMMER.yaml in current directory)
 rommer
 
+# dry-run mode
+rommer -d # or --dry-run
+
 # Specify a custom config file
 rommer -c my-config.yaml
 
+# dry-run mode with a custom config
+rommer -d -c my-config.yaml
+
 # Use an existing ROM ZIP instead of downloading
+# Also supports using tilde (~) which is the home directory
 rommer -r path/to/existing/rom.zip
+
+# dry-run mode with an existing ROM ZIP
+rommer -d -r path/to/existing/rom.zip
 
 # Keep temporary files (override cleanup setting)
 rommer -n
@@ -154,6 +164,8 @@ Options:
   -c, --config <CONFIG>    Path to config file [default: ROMMER.yaml]
   -r, --romzip <ROMZIP>    Path to ROM ZIP file [default: .download]
   -n, --no-cleanup         Override cleanup setting from config
+  -s, --skip-signing       Skip signing the final ROM
+  -d, --dry-run            Running in dry-run mode
   -h, --help               Print help information
   -V, --version            Print version information
 ```
@@ -218,5 +230,7 @@ This project is licensed under the [GNU General Public License v3 License](LICEN
 - The Android ROM development community
 - All ROM projects for their amazing work
 - The Rust community for providing excellent libraries
+
+--
 
 <div align="center"><p><strong>#KeepROMMING</strong></p></div>
