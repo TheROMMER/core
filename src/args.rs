@@ -1,8 +1,11 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
+    #[command(subcommand)]
+    pub(crate) command: Option<Commands>,
+
     #[arg(short, long, default_value = "ROMMER.yaml")]
     pub config: String,
 
@@ -17,4 +20,14 @@ pub struct Args {
 
     #[arg(short, long, help = "Running in dry-run mode")]
     pub dry_run: bool,
+}
+
+#[derive(Subcommand)]
+pub enum Commands {
+    /// Initialize a new patch structure
+    Init {
+        /// Optional name for the patch folder
+        #[arg(short, long)]
+        name: Option<String>,
+    },
 }

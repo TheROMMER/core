@@ -113,13 +113,8 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>, dry_run: bool)
     Ok(())
 }
 
-pub fn print_banner(dry_run: bool) {
-    if dry_run {
-        print_section("🔧 ROMMER (DRY RUN MODE)");
-    } else {
-        print_section("🔧 ROMMER");
-    }
-    println!();
+pub fn print_banner() {
+    print_section("🔧 ROMMER");
 }
 
 pub fn print_section(title: &str) {
