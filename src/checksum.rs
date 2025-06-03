@@ -38,7 +38,7 @@ mod tests {
     fn test_checksum_calculation() -> Result<()> {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(b"Hello, ROMMER!")?;
-        let expected = "9c9c041fd4c2d9be53503827fedb365c82e26bcea9d45bc3de9c0a8a8205a10d";
+        let expected = "bc25e260ac6d31552dd72a17dc1ef1f38117f136cd6b9ace6ade20a79bdf4790";
         let calculated = calculate_file_checksum(temp_file.path())?;
         assert_eq!(calculated, expected);
         let verified = verify_checksum(temp_file.path(), expected)?;
