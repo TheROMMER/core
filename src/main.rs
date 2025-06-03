@@ -91,8 +91,7 @@ fn rezip_rom(source_dir: &Path, output_path: &Path) -> Result<()> {
     let total_files = WalkDir::new(source_dir).into_iter().count();
     let pb = ProgressBar::new(total_files as u64);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files")
-        .unwrap()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files")?
         .progress_chars("█▉▊▋▌▍▎▏  "));
 
     let options = FileOptions::<()>::default()
@@ -282,8 +281,7 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
     let total_size = response.content_length().unwrap_or(0);
     let pb = ProgressBar::new(total_size);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-        .unwrap()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
         .progress_chars("█▉▊▋▌▍▎▏  "));
     let rom_filename = format!("{}_{}_{}.zip", config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version);
     let rom_path = PathBuf::from(&rom_filename);
@@ -414,7 +412,7 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 
 fn print_banner() {
     print_section("🔧 ROMMER");
-    println!("");
+    println!();
 }
 
 fn print_section(title: &str) {
