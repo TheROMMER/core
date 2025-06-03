@@ -71,6 +71,9 @@ rommer -d -r path/to/existing/rom.zip
 
 # Keep temporary files (override cleanup setting)
 rommer -n
+
+# Initialize a sample ROM
+rommer init -n my-rom # or --name, also name optional, defaults to my-rom
 ```
 
 ## Configuration File
