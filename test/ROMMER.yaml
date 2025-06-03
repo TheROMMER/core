@@ -7,11 +7,5 @@ patches:
   - patches/remove_bloatware_patch/ # dummy
   - patches/custom_bootanimation_patch/ # dummy
 
-signing:
-  enabled: true
-  key_path: ./keys/releasekey.pk8
-  cert_path: ./keys/releasekey.x509.pem
-
 output:
   filename: evox-garnet-custom.zip
-  compression_level: 6

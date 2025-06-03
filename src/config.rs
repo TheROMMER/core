@@ -11,16 +11,18 @@ pub struct Config {
     pub output: OutputConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(serde::Deserialize, Debug)]
 pub struct SigningConfig {
-    pub enabled: bool,
-    pub key_path: Option<String>,
-    pub cert_path: Option<String>,
+    pub method: String,
+    pub keystore_path: String,
+    pub key_alias: String,
+    pub keystore_password: String,
+    pub key_password: String,
+    pub custom_command: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct OutputConfig {
     pub filename: String,
-    pub compression_level: Option<u8>,
 }
 
