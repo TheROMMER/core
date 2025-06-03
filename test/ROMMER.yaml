@@ -1,7 +1,9 @@
 device: garnet # of course.
 rom: https://netix.dl.sourceforge.net/project/evolution-x/garnet/15/EvolutionX-15.0-20250522-garnet-10.6-Official.zip?viasf=1 # or ROM name
+max_retries: 3
 version: latest
 android_version: 15
+expected_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" # test to fail
 
 patches:
   - patches/remove_bloatware_patch/ # dummy patch
@@ -9,3 +11,11 @@ patches:
 
 output:
   filename: evox-garnet-custom.zip
+# Signing configuration is optional - if not provided, a test signature will be used
+# signing:
+#   method: apksigner  # Can be: apksigner, jarsigner, or custom
+#   keystore_path: ~/.android/debug.keystore
+#   key_alias: androiddebugkey
+#   keystore_password: android
+#   key_password: android
+#   custom_command: null  # Only used when method is 'custom'

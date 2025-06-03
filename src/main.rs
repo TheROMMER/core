@@ -1,4 +1,5 @@
 mod config;
+mod checksum;
 use anyhow::{Context, Result};
 use clap::Parser;
 use config::Config;
@@ -18,6 +19,7 @@ use std::fs::File;
 use walkdir::WalkDir;
 use crate::config::SigningConfig;
 use futures_util::StreamExt;
+use sha2::{Sha256, Digest};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -27,6 +29,9 @@ struct Args {
 
     #[arg(short, long, default_value = ".download")]
     romzip: String,
+
+    #[arg(short, long, help = "Override cleanup setting from config")]
+    no_cleanup: bool,
 }
 
 #[tokio::main]
@@ -35,8 +40,11 @@ async fn main() -> Result<()> {
     let args = Args::parse();
     let config_content = fs::read_to_string(&args.config)
         .with_context(|| format!("Failed to read config file '{}'", args.config))?;
-    let config: Config = serde_yaml::from_str(&config_content)
+    let mut config: Config = serde_yaml::from_str(&config_content)
         .with_context(|| "Failed to parse ROMMER.yaml")?;
+    if args.no_cleanup {
+        config.cleanup = false;
+    }
     print_success(&format!("📱 Device: {} | 🔧 Base ROM: {} | 📦 Version: {} | Android Version: {}", 
         config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version, config.android_version));
 
@@ -65,7 +73,6 @@ async fn main() -> Result<()> {
         handle_deletions(patch_path, tmp_dir.path(), ".rommerdel", "directory")?;
         handle_file_deletions(patch_path, tmp_dir.path(), ".rommerfdel", "file")?;
     }
- 
     let kept_path = tmp_dir.keep();
     print_section("✅ PATCHING COMPLETE");
     print_success(&format!("📂 Patched ROM: {}", kept_path.display()));
@@ -79,6 +86,16 @@ async fn finalize_rom(tmp_dir: &Path, config: &Config) -> Result<PathBuf> {
     let output_path = PathBuf::from(&output_filename);
     rezip_rom(tmp_dir, &output_path)?;
     sign_rom(&output_path, config).await?;
+    if config.cleanup {
+        print_info("🧹 Cleaning up temporary files...");
+        match fs::remove_dir_all(tmp_dir) {
+            Ok(_) => print_success("✅ Temporary files cleaned up successfully"),
+            Err(e) => print_warning(&format!("⚠️ Failed to clean up temporary files: {}", e)),
+        }
+    } else {
+        print_info(&format!("💾 Keeping temporary files at: {}", tmp_dir.display()));
+    }
+
     Ok(output_path)
 }
 
@@ -100,7 +117,7 @@ fn rezip_rom(source_dir: &Path, output_path: &Path) -> Result<()> {
 
     for entry in walker.filter_map(|e| e.ok()) {
         let path = entry.path();
-        let name = path.strip_prefix(source_dir).unwrap();
+        let name = path.strip_prefix(source_dir)?;
         if path.is_file() {
             zip.start_file(name.to_string_lossy(), options)?;
             let mut f = File::open(path)?;
@@ -272,35 +289,108 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
     print_section("📥 DOWNLOADING ROM");
     let download_url = construct_download_url(config)?;
     print_info(&format!("🌐 URL: {}", download_url));
+    let MAX_RETRIES: u32 = config.max_retries;
+    const RETRY_DELAY_MS: u64 = 2000;
     let client = reqwest::Client::new();
-    let response = client.get(&download_url).send().await
-        .context("Failed to start download")?;
-    if !response.status().is_success() {
-        return Err(anyhow::anyhow!("Download failed with status: {}", response.status()));
+    let mut response = None;
+    let mut last_error = None;
+    for attempt in 1..=MAX_RETRIES {
+        match client.get(&download_url).send().await {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    response = Some(resp);
+                    break;
+                } else {
+                    let status = resp.status();
+                    if attempt < MAX_RETRIES {
+                        print_warning(&format!("Attempt {}/{}: Download failed with status: {}. Retrying in {}ms...", 
+                            attempt, MAX_RETRIES, status, RETRY_DELAY_MS));
+                        tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+                    } else {
+                        last_error = Some(anyhow::anyhow!("Download failed with status: {}", status));
+                    }
+                }
+            },
+            Err(e) => {
+                if attempt < MAX_RETRIES {
+                    print_warning(&format!("Attempt {}/{}: Download failed: {}. Retrying in {}ms...", 
+                        attempt, MAX_RETRIES, e, RETRY_DELAY_MS));
+                    tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+                } else {
+                    last_error = Some(anyhow::Error::new(e));
+                }
+            }
+        }
     }
+
+    let response = match response {
+        Some(resp) => resp,
+        None => return Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Failed to download after {} attempts", MAX_RETRIES))),
+    };
     let total_size = response.content_length().unwrap_or(0);
     let pb = ProgressBar::new(total_size);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta})")?
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {bytes}/{total_bytes} ({eta}, {msg})")?
         .progress_chars("█▉▊▋▌▍▎▏  "));
     let rom_filename = format!("{}_{}_{}.zip", config.device, if config.rom.starts_with("http") {"custom"} else {&config.rom}, config.version);
     let rom_path = PathBuf::from(&rom_filename);
     if rom_path.exists() {
-        print_info("File already exists! using the existing file...");
-        return Ok(rom_path);
+        print_info("File already exists! Checking integrity...");
+        if let Some(expected_hash) = &config.expected_checksum {
+            match checksum::verify_checksum(&rom_path, expected_hash) {
+                Ok(true) => {
+                    print_success("✅ Existing file checksum verified successfully");
+                    return Ok(rom_path);
+                },
+                Ok(false) => {
+                    print_warning("⚠️ Checksum verification failed for existing file. Re-downloading...");
+                    fs::remove_file(&rom_path).context("Failed to remove corrupted file")?;
+                },
+                Err(e) => {
+                    print_warning(&format!("⚠️ Could not verify checksum: {}. Re-downloading...", e));
+                    fs::remove_file(&rom_path).context("Failed to remove potentially corrupted file")?;
+                }
+            }
+        } else {
+            print_info("File already exists! Using the existing file...");
+            return Ok(rom_path);
+        }
     }
-    let mut file = fs::File::create(&rom_path)
+    let mut file = File::create(&rom_path)
         .with_context(|| format!("Failed to create file '{}'", rom_filename))?;
     let mut downloaded = 0u64;
+    let mut hasher = sha2::Sha256::new();
     let mut stream = response.bytes_stream();
     while let Some(chunk_result) = stream.next().await {
         let chunk = chunk_result.context("Failed to read chunk")?;
         file.write_all(&chunk).context("Failed to write chunk")?;
+        hasher.update(&chunk);
         downloaded += chunk.len() as u64;
         pb.set_position(downloaded);
+        if downloaded % (1024 * 1024) == 0 {
+            let progress_percentage = if total_size > 0 {
+                (downloaded as f64 / total_size as f64) * 100.0
+            } else { 0.0 };
+            let elapsed = pb.elapsed().as_secs_f64();
+            if elapsed > 0.0 {
+                let speed = downloaded as f64 / elapsed / 1024.0 / 1024.0; // MiB/s
+                pb.set_message(format!("{}% • {:.2} MiB/s", progress_percentage as u32, speed));
+            } else {
+                pb.set_message(format!("{}%", progress_percentage as u32));
+            }
+        }
     }
-    pb.finish_with_message("Download complete!");
-    print_success(&format!("💾 Downloaded: {}", rom_filename));
+
+    let file_hash = hasher.finalize();
+    let hash_hex = format!("{:x}", file_hash);
+    pb.finish_with_message(format!("SHA256: {}...", &hash_hex[..8]));
+    print_success(&format!("💾 Downloaded: {} (SHA256: {})", rom_filename, hash_hex));
+    if let Some(expected_hash) = &config.expected_checksum {
+        if expected_hash.to_lowercase() != hash_hex {
+            return Err(anyhow::anyhow!("Checksum verification failed! Expected: {}, Got: {}", expected_hash, hash_hex));
+        }
+        print_success("✅ Checksum verified successfully");
+    }
     Ok(rom_path)
 }
 
@@ -322,17 +412,16 @@ fn construct_download_url(config: &Config) -> Result<String> {
 
 fn unzip_rom(zip_path: &Path, out_dir: &Path) -> Result<()> {
     print_section("📦 EXTRACTING ROM");
-    let file = fs::File::open(zip_path)
+    let file = File::open(zip_path)
         .with_context(|| format!("Failed to open zip file '{}'", zip_path.display()))?;
     let mut archive = ZipArchive::new(file).context("Failed to read zip archive")?;
     let pb = ProgressBar::new(archive.len() as u64);
     pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files")
-        .unwrap()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files")?
         .progress_chars("█▉▊▋▌▍▎▏  "));
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).unwrap();
+        let mut file = archive.by_index(i)?;
         let outpath = out_dir.join(file.mangled_name());
         if file.is_dir() {
             fs::create_dir_all(&outpath)?;
@@ -342,7 +431,7 @@ fn unzip_rom(zip_path: &Path, out_dir: &Path) -> Result<()> {
                     fs::create_dir_all(&p)?;
                 }
             }
-            let mut outfile = fs::File::create(&outpath)?;
+            let mut outfile = File::create(&outpath)?;
             std::io::copy(&mut file, &mut outfile)?;
         }
         pb.inc(1);
