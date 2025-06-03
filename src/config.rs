@@ -33,4 +33,3 @@ pub struct SigningConfig {
 pub struct OutputConfig {
     pub filename: String,
 }
-

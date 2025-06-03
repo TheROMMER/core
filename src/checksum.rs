@@ -1,15 +1,20 @@
 use anyhow::{Context, Result};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::{fs::File, io::Read, path::Path};
 
 /// Calculates the SHA-256 checksum of a file
 pub fn calculate_file_checksum(path: &Path) -> Result<String> {
-    let mut file = File::open(path)
-        .with_context(|| format!("Failed to open file for checksum calculation: {}", path.display()))?;
+    let mut file = File::open(path).with_context(|| {
+        format!(
+            "Failed to open file for checksum calculation: {}",
+            path.display()
+        )
+    })?;
     let mut hasher = Sha256::new();
     let mut buffer = [0; 1024 * 64]; // 64KiB buffer
     loop {
-        let bytes_read = file.read(&mut buffer)
+        let bytes_read = file
+            .read(&mut buffer)
             .with_context(|| "Failed to read file during checksum calculation")?;
         if bytes_read == 0 {
             break;

@@ -4,3 +4,4 @@
 # WIP
 - Added Dry-Run Mode. (`-d` or `--dry-run`)
 - Added skip signing. (`-s` or `--skip-signing`)
+- chore: Modularize the code
