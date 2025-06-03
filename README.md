@@ -231,6 +231,6 @@ This project is licensed under the [GNU General Public License v3 License](LICEN
 - All ROM projects for their amazing work
 - The Rust community for providing excellent libraries
 
---
+---
 
 <div align="center"><p><strong>#KeepROMMING</strong></p></div>
