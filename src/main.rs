@@ -19,7 +19,7 @@ use std::fs::File;
 use walkdir::WalkDir;
 use crate::config::SigningConfig;
 use futures_util::StreamExt;
-use sha2::{Sha256, Digest};
+use sha2::Digest;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -289,12 +289,12 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
     print_section("📥 DOWNLOADING ROM");
     let download_url = construct_download_url(config)?;
     print_info(&format!("🌐 URL: {}", download_url));
-    let MAX_RETRIES: u32 = config.max_retries;
+    let max_retries: u32 = config.max_retries;
     const RETRY_DELAY_MS: u64 = 2000;
     let client = reqwest::Client::new();
     let mut response = None;
     let mut last_error = None;
-    for attempt in 1..=MAX_RETRIES {
+    for attempt in 1..=max_retries {
         match client.get(&download_url).send().await {
             Ok(resp) => {
                 if resp.status().is_success() {
@@ -302,9 +302,9 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
                     break;
                 } else {
                     let status = resp.status();
-                    if attempt < MAX_RETRIES {
-                        print_warning(&format!("Attempt {}/{}: Download failed with status: {}. Retrying in {}ms...", 
-                            attempt, MAX_RETRIES, status, RETRY_DELAY_MS));
+                    if attempt < max_retries {
+                        print_warning(&format!("Attempt {}/{}: Download failed with status: {}. Retrying in {}ms...",
+                                               attempt, max_retries, status, RETRY_DELAY_MS));
                         tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
                     } else {
                         last_error = Some(anyhow::anyhow!("Download failed with status: {}", status));
@@ -312,9 +312,9 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
                 }
             },
             Err(e) => {
-                if attempt < MAX_RETRIES {
-                    print_warning(&format!("Attempt {}/{}: Download failed: {}. Retrying in {}ms...", 
-                        attempt, MAX_RETRIES, e, RETRY_DELAY_MS));
+                if attempt < max_retries {
+                    print_warning(&format!("Attempt {}/{}: Download failed: {}. Retrying in {}ms...",
+                                           attempt, max_retries, e, RETRY_DELAY_MS));
                     tokio::time::sleep(tokio::time::Duration::from_millis(RETRY_DELAY_MS)).await;
                 } else {
                     last_error = Some(anyhow::Error::new(e));
@@ -325,7 +325,7 @@ async fn download_rom(config: &Config) -> Result<PathBuf> {
 
     let response = match response {
         Some(resp) => resp,
-        None => return Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Failed to download after {} attempts", MAX_RETRIES))),
+        None => return Err(last_error.unwrap_or_else(|| anyhow::anyhow!("Failed to download after {} attempts", max_retries))),
     };
     let total_size = response.content_length().unwrap_or(0);
     let pb = ProgressBar::new(total_size);
