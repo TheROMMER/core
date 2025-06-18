@@ -4,10 +4,10 @@ use zip::ZipArchive;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use anyhow::Context;
+use crate::utils;
 
 pub fn unzip_rom(zip_path: &Path, out_dir: &Path, dry_run: bool) -> anyhow::Result<()> {
     crate::utils::print_section("📦 EXTRACTING ROM");
-
     if dry_run {
         crate::utils::print_info(&format!(
             "🔍 DRY RUN: Would extract files to: {}",
@@ -45,6 +45,6 @@ pub fn unzip_rom(zip_path: &Path, out_dir: &Path, dry_run: bool) -> anyhow::Resu
         pb.inc(1);
     }
     pb.finish_with_message("Extraction complete!");
-    crate::utils::print_success(&format!("📂 Extracted to: {}", out_dir.display()));
+    utils::print_success(&format!("📂 Extracted to: {}", out_dir.display()));
     Ok(())
 }

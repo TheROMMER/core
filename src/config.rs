@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -13,10 +14,18 @@ pub struct Config {
     pub expected_checksum: Option<String>,
     #[serde(default = "default_cleanup")]
     pub cleanup: bool,
+    #[serde(default)]
+    pub hooks: Hooks,
 }
 
 fn default_cleanup() -> bool {
     true
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct Hooks {
+    #[serde(flatten)]
+    pub scripts: HashMap<String, String>,
 }
 
 #[derive(serde::Deserialize, Debug)]

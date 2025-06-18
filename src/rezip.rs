@@ -8,7 +8,6 @@ use anyhow::Context;
 
 pub fn rezip_rom(source_dir: &Path, output_path: &Path, dry_run: bool) -> anyhow::Result<()> {
     crate::utils::print_section("📦 CREATING FLASHABLE ZIP");
-
     if dry_run {
         crate::utils::print_info(&format!(
             "🔍 DRY RUN: Would create zip file: {}",

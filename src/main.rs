@@ -53,8 +53,9 @@ let config_content = fs::read_to_string(&args.config)
         config.version,
         config.android_version
     ));
-
+    utils::run_hook(&config.hooks, "pre-run");
     let romzip_path = if args.romzip == ".download" {
+        utils::run_hook(&config.hooks, "pre-download");
         download::download_rom(&config, args.dry_run).await?
     } else {
         let expanded = shellexpand::tilde(&args.romzip);
@@ -66,8 +67,11 @@ let config_content = fs::read_to_string(&args.config)
         "🗂️  Working directory: {}",
         tmp_dir.path().display()
     ));
+    utils::run_hook(&config.hooks, "pre-unzip");
     unzip::unzip_rom(&romzip_path, tmp_dir.path(), args.dry_run)?;
+    utils::run_hook(&config.hooks, "post-unzip");
     utils::print_section("🔧 APPLYING PATCHES");
+    utils::run_hook(&config.hooks, "pre-patch");
     for (i, patch_folder) in config.patches.iter().enumerate() {
         let patch_path = Path::new(patch_folder);
         if !patch_path.exists() {
@@ -101,6 +105,7 @@ let config_content = fs::read_to_string(&args.config)
     let kept_path = tmp_dir.keep();
     utils::print_section("✅ PATCHING COMPLETE");
     utils::print_success(&format!("📂 Patched ROM: {}", kept_path.display()));
+    utils::run_hook(&config.hooks, "post-patch");
     let final_rom_path = finalize::finalize_rom(&kept_path, &config, args.dry_run).await?;
     utils::print_success(&format!("🎉 Final ROM: {}", final_rom_path.display()));
     Ok(())

@@ -1,3 +1,4 @@
+use crate::utils;
 use std::path::PathBuf;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
@@ -169,6 +170,7 @@ pub async fn download_rom(config: &Config, dry_run: bool) -> anyhow::Result<Path
         }
         crate::utils::print_success("✅ Checksum verified successfully");
     }
+    utils::run_hook(&config.hooks, "post-download");
     Ok(rom_path)
 }
 

@@ -11,6 +11,10 @@ patches:
 
 output:
   filename: evox-garnet-custom.zip
+
+hooks:
+  pre-run: scripts/pre_run.sh
+  pre-download: scripts/pre_download.sh
 # Signing configuration is optional - if not provided, a test signature will be used
 # signing:
 #   method: apksigner  # Can be: apksigner, jarsigner, or custom
