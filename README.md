@@ -6,6 +6,11 @@
 
 ROMMER is a powerful tool designed to customize Android ROM ZIP files **without building from source**. Built with Rust for maximum performance and reliability, ROMMER automates the tedious process of downloading, unpacking, modifying, and repacking Android ROMs.
 
+## Disclaimer
+
+⚠️ Use this tool at your own risk.
+We are not responsible for any damage, data loss, or device bricks resulting from its use.
+
 ## Purpose
 
 Customizing Android ROMs typically requires either building from source (which is resource-intensive) or manually modifying ZIP files (which is error-prone). ROMMER bridges this gap by providing a streamlined, declarative approach to ROM customization.
