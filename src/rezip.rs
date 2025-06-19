@@ -1,10 +1,10 @@
+use anyhow::Context;
+use indicatif::{ProgressBar, ProgressStyle};
+use std::fs::File;
 use std::path::Path;
 use walkdir::WalkDir;
-use std::fs::File;
-use zip::{CompressionMethod, ZipWriter};
-use indicatif::{ProgressBar, ProgressStyle};
 use zip::write::FileOptions;
-use anyhow::Context;
+use zip::{CompressionMethod, ZipWriter};
 
 pub fn rezip_rom(source_dir: &Path, output_path: &Path, dry_run: bool) -> anyhow::Result<()> {
     crate::utils::print_section("📦 CREATING FLASHABLE ZIP");

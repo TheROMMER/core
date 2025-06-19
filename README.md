@@ -82,10 +82,11 @@ ROMMER uses a YAML configuration file (`ROMMER.yaml` by default) to define how y
 
 ```yaml
 device: garnet        # Device codename
-rom: lineageos        # ROM source or direct download URL
+rom: lineageos        # ROM name or direct download URL
 max_retries: 3        # Download retry attempts
 version: 20.0         # ROM version to download
 android_version: 15   # Android version
+variant: nightly      # ROM Variant, required for downloading LineageOS.
 
 # Optional SHA-256 checksum for download verification
 expected_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
@@ -116,9 +117,9 @@ cleanup: true
 
 ROMMER can download ROMs from the following sources:
 
-- LineageOS (`rom: lineageos`) // TODO
-- PixelExperience (`rom: pixelexperience`) // TODO
-- EvolutionX (`rom: evolutionx`) // TODO
+- LineageOS (`rom: lineageos`)
+- PixelOS (`rom: pixelos`)
+- EvolutionX (`rom: evolutionx`)
 - Custom URL (`rom: https://example.com/path/to/rom.zip`)
 
 ## Patch Structure

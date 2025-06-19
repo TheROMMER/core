@@ -8,6 +8,8 @@ pub struct Config {
     pub max_retries: u32,
     pub version: String,
     pub android_version: String,
+    pub timestamp: String,
+    pub variant: String,
     pub patches: Vec<String>,
     pub signing: Option<SigningConfig>,
     pub output: OutputConfig,

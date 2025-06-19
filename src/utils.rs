@@ -1,9 +1,9 @@
 use crate::config::Hooks;
-use std::process::Command;
+use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::{fs, io};
 use walkdir::WalkDir;
-use anyhow::{Result, Context};
 pub fn run_hook(hooks: &Hooks, hook_name: &str) -> Result<()> {
     if let Some(script) = hooks.scripts.get(hook_name) {
         print_info(&("Running hook: ".to_owned() + hook_name));
@@ -13,7 +13,12 @@ pub fn run_hook(hooks: &Hooks, hook_name: &str) -> Result<()> {
             .with_context(|| format!("Failed to run hook script: {}", script))?;
 
         if !status.success() {
-            anyhow::bail!("Hook {} script {} failed with status {:?}", hook_name, script, status);
+            anyhow::bail!(
+                "Hook {} script {} failed with status {:?}",
+                hook_name,
+                script,
+                status
+            );
         }
     }
     Ok(())

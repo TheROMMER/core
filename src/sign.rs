@@ -1,9 +1,9 @@
-use std::path::Path;
-use std::process::Command;
-use clap::Parser;
-use anyhow::Context;
 use crate::args::Args;
 use crate::config::{Config, SigningConfig};
+use anyhow::Context;
+use clap::Parser;
+use std::path::Path;
+use std::process::Command;
 
 pub async fn sign_rom(zip_path: &Path, config: &Config, dry_run: bool) -> anyhow::Result<()> {
     let args = Args::parse();

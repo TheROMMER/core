@@ -1,14 +1,14 @@
-use crate::utils;
-use std::path::PathBuf;
-use indicatif::{ProgressBar, ProgressStyle};
-use std::fs;
-use std::fs::File;
-use anyhow::Context;
-use sha2::Digest;
-use futures_util::StreamExt;
-use std::io::Write;
 use crate::checksum;
 use crate::config::Config;
+use crate::utils;
+use anyhow::Context;
+use futures_util::StreamExt;
+use indicatif::{ProgressBar, ProgressStyle};
+use sha2::Digest;
+use std::fs;
+use std::fs::File;
+use std::io::Write;
+use std::path::PathBuf;
 
 pub async fn download_rom(config: &Config, dry_run: bool) -> anyhow::Result<PathBuf> {
     crate::utils::print_section("📥 DOWNLOADING ROM");
@@ -176,11 +176,9 @@ pub async fn download_rom(config: &Config, dry_run: bool) -> anyhow::Result<Path
 
 fn construct_download_url(config: &Config) -> anyhow::Result<String> {
     let base_urls = std::collections::HashMap::from([
-        ("lineageos", "https://download.lineageos.org"),
-        ("pixelexperience", "https://download.pixelexperience.org"),
-        (
-            "evolutionx",
-            "https://sourceforge.net/projects/evolution-x/files",
+        ("lineageos", format!("https://mirrorbits.lineageos.org/full/{}/{}/lineage-{}-{}-{}-{}-signed.zip", config.device, config.timestamp, config.version, config.timestamp, config.variant, config.device).to_string()),
+        ("pixelos", format!("https://altushost-swe.dl.sourceforge.net/project/pixelos-releases/{}/{}/PixelOS_{}-{}.0-{}.zip?viasf=1", config.version, config.device, config.device, config.android_version, config.timestamp).to_string()),
+        ("evolutionx", format!("https://cyfuture.dl.sourceforge.net/project/evolution-x/{}/{}/EvolutionX-{}.0-{}-{}-{}-Official.zip?viasf=1", config.device, config.android_version, config.android_version, config.timestamp, config.device, config.version).to_string(),
         ),
     ]);
 
@@ -190,9 +188,6 @@ fn construct_download_url(config: &Config) -> anyhow::Result<String> {
         let base_url = base_urls
             .get(config.rom.to_lowercase().as_str())
             .ok_or_else(|| anyhow::anyhow!("Unsupported ROM: {}", config.rom))?;
-        Ok(format!(
-            "{}/builds/{}/{}",
-            base_url, config.device, config.version
-        ))
+        Ok(base_url.to_string())
     }
 }

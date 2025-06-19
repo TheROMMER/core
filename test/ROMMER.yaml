@@ -1,8 +1,10 @@
-device: garnet # of course.
-rom: https://netix.dl.sourceforge.net/project/evolution-x/garnet/15/EvolutionX-15.0-20250522-garnet-10.6-Official.zip?viasf=1 # or ROM name
+device: bluejay # Pixel 6a
+rom: lineageos
 max_retries: 3
-version: latest
+version: 22.2
 android_version: 15
+variant: nightly # required for LineageOS, anything should be good but in LineageOS
+timestamp: 20250614 # for ROM downloading
 #expected_checksum: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" # test to fail
 
 patches:

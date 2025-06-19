@@ -1,10 +1,10 @@
-use std::path::Path;
-use std::fs::File;
-use zip::ZipArchive;
+use crate::utils;
+use anyhow::Context;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
-use anyhow::Context;
-use crate::utils;
+use std::fs::File;
+use std::path::Path;
+use zip::ZipArchive;
 
 pub fn unzip_rom(zip_path: &Path, out_dir: &Path, dry_run: bool) -> anyhow::Result<()> {
     crate::utils::print_section("📦 EXTRACTING ROM");

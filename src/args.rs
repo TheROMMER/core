@@ -27,7 +27,12 @@ pub enum Commands {
     /// Initialize a new patch structure
     Init {
         /// Optional name for the patch folder
-        #[arg(short, long, help = "Optional name for the patch folder", default_value = "my-rom")]
+        #[arg(
+            short,
+            long,
+            help = "Optional name for the patch folder",
+            default_value = "my-rom"
+        )]
         name: Option<String>,
     },
 }
