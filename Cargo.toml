@@ -5,7 +5,7 @@ repository = "https://github.com/TheROMMER/core"
 homepage = "https://github.com/TheROMMER/core"
 license-file = "LICENSE"
 authors = ["neoapps-dev"]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 
 [dependencies]
