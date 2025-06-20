@@ -103,7 +103,7 @@ patches:
 
 # Output configuration
 output:
-  filename: lineageos-pixel8pro-custom.zip
+  filename: lineageos-garnet-custom.zip
 
 # Optional signing configuration
 signing:
