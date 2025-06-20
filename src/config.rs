@@ -7,7 +7,7 @@ pub struct Config {
     pub rom: String,
     pub max_retries: u32,
     pub version: String,
-    pub android_version: String,
+    pub android_version: u32,
     pub timestamp: String,
     pub variant: String,
     pub patches: Vec<String>,

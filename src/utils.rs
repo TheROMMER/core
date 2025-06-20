@@ -128,7 +128,7 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>, dry_run: bool)
         if ty.is_dir() {
             copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()), dry_run)?;
         } else {
-            fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            if entry.file_name() != "patch.yaml" { fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?; }
         }
     }
     Ok(())
@@ -154,4 +154,23 @@ pub fn print_info(msg: &str) {
 
 pub fn print_warning(msg: &str) {
     println!("⚠️  {}", msg);
+}
+
+pub fn android_version_matches(requirement: &str, current: u32) -> bool {
+    use regex::Regex;
+    let re = Regex::new(r"^(>=|<=|=|>|<)?\s*(\d+)$").unwrap();
+    if let Some(caps) = re.captures(requirement.trim()) {
+        let op = caps.get(1).map_or("=", |m| m.as_str());
+        let ver = caps[2].parse::<u32>().unwrap_or(current);
+        match op {
+            "=" => current == ver,
+            ">" => current > ver,
+            "<" => current < ver,
+            ">=" => current >= ver,
+            "<=" => current <= ver,
+            _ => true,
+        }
+    } else {
+        true // invalid
+    }
 }

@@ -20,6 +20,14 @@ pub struct Args {
 
     #[arg(short, long, help = "Running in dry-run mode")]
     pub dry_run: bool,
+
+    #[arg(
+        short,
+        long,
+        value_delimiter = ',',
+        help = "Only apply patches with these tags (comma-separated)"
+    )]
+    pub tags: Option<Vec<String>>,
 }
 
 #[derive(Subcommand)]

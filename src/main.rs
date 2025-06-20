@@ -3,11 +3,11 @@ mod checksum;
 mod config;
 mod download;
 mod finalize;
+mod patchmeta;
 mod rezip;
 mod sign;
 mod unzip;
 mod utils;
-
 use crate::args::Commands;
 use anyhow::{Context, Result};
 use args::Args;
@@ -79,12 +79,63 @@ async fn nosubcommand(args: Args) -> Result<()> {
             continue;
         }
 
-        utils::print_info(&format!(
-            "[{}/{}] Applying patch '{}'",
-            i + 1,
-            config.patches.len(),
-            patch_folder
-        ));
+        let patch_path = Path::new(patch_folder);
+        let patch_meta = patchmeta::load_patch_meta(patch_path);
+        if let Some(ref tags_filter) = args.tags {
+            if let Some(meta) = &patch_meta {
+                let tags = meta.tags.clone().unwrap_or_default();
+                let matches = tags.iter().any(|t| tags_filter.contains(t));
+                if !matches {
+                    utils::print_info(&format!(
+                        "🚫 Skipping patch '{}' (tag mismatch)",
+                        patch_folder
+                    ));
+                    continue;
+                }
+            } else {
+                utils::print_info(&format!(
+                    "🚫 Skipping patch '{}' (no patch.yaml, no tags)",
+                    patch_folder
+                ));
+                continue;
+            }
+        }
+        if let Some(meta) = &patch_meta {
+            if let Some(req) = &meta.requires_android {
+                if !utils::android_version_matches(req, config.android_version) {
+                    utils::print_info(&format!(
+                        "🚫 Skipping patch '{}' (requires Android {}, current is {})",
+                        patch_folder, req, config.android_version
+                    ));
+                    continue;
+                }
+            }
+        }
+        if let Some(meta) = &patch_meta {
+            utils::print_info(&format!(
+                "[{}/{}] Applying patch: {}{} by {}",
+                i + 1,
+                config.patches.len(),
+                meta.name
+                    .clone()
+                    .unwrap_or_else(|| patch_folder.to_string()),
+                meta.version
+                    .as_ref()
+                    .map(|v| format!(" v{}", v))
+                    .unwrap_or_default(),
+                meta.author.clone().unwrap_or_else(|| "Unknown".to_string()),
+            ));
+            if let Some(desc) = &meta.description {
+                utils::print_info(&format!("📝 {}", desc));
+            }
+        } else {
+            utils::print_info(&format!(
+                "[{}/{}] Applying patch '{}'",
+                i + 1,
+                config.patches.len(),
+                patch_folder
+            ));
+        }
         utils::copy_dir_all(patch_path, tmp_dir.path(), args.dry_run)
             .with_context(|| format!("Failed to copy patch folder '{}'", patch_folder))?;
         utils::handle_deletions(

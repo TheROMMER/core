@@ -9,3 +9,6 @@
 - Added Hooks! `pre-run`, `post-run`, `pre-unzip`, `post-unzip`, `pre-zip`, `post-zip`, `pre-sign`, `post-sign`, `pre-download`, `post-download`, `pre-cleanup`, `post-cleanup`
 - Added `timestamp` and `variant` keys to the config format.
 - Finally! you can now download `LineageOS`, `EvolutionX` and `PixelOS` just by typing the name instead of URL!
+
+# WIP
+- Added per-patch config file which specifies patch name, version, author, required android version (>=, <=, >, <, etc.) and conflicts with which patch.

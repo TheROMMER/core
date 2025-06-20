@@ -12,7 +12,7 @@ patches:
   - patches/custom_bootanimation_patch/ # dummy patch
 
 output:
-  filename: evox-garnet-custom.zip
+  filename: lineageos-bluejay-custom.zip
 
 hooks:
   pre-run: scripts/pre_run.sh

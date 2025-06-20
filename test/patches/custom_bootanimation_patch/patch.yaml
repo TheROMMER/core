@@ -1,0 +1,6 @@
+name: Change Bootanimation
+version: 1.0.0
+description: Changes Bootanimation for branding (placeholder, just testing.)
+tags: [boot, prod]
+requires_android: ">=14"
+author: neoapps-dev
