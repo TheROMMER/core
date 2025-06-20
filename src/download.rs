@@ -170,7 +170,7 @@ pub async fn download_rom(config: &Config, dry_run: bool) -> anyhow::Result<Path
         }
         crate::utils::print_success("✅ Checksum verified successfully");
     }
-    utils::run_hook(&config.hooks, "post-download");
+    let _ = utils::run_hook(&config.hooks, "post-download");
     Ok(rom_path)
 }
 

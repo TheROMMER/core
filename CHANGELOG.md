@@ -11,4 +11,4 @@
 - Finally! you can now download `LineageOS`, `EvolutionX` and `PixelOS` just by typing the name instead of URL!
 
 # WIP
-- Added per-patch config file which specifies patch name, version, author, required android version (>=, <=, >, <, etc.) and conflicts with which patch.
+- Added per-patch optional config file (patch.yaml) which specifies patch name, version, author, required android version (>=, <=, >, <, etc.) and conflicts with which patches.

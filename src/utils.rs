@@ -128,7 +128,9 @@ pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>, dry_run: bool)
         if ty.is_dir() {
             copy_dir_all(entry.path(), dst.as_ref().join(entry.file_name()), dry_run)?;
         } else {
-            if entry.file_name() != "patch.yaml" { fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?; }
+            if entry.file_name() != "patch.yaml" {
+                fs::copy(entry.path(), dst.as_ref().join(entry.file_name()))?;
+            }
         }
     }
     Ok(())
