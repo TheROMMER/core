@@ -7,7 +7,6 @@ pub struct PatchMeta {
     pub description: Option<String>,
     pub tags: Option<Vec<String>>,
     pub requires_android: Option<String>,
-    pub conflicts_with: Option<Vec<String>>,
     pub author: Option<String>,
 }
 
