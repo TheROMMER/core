@@ -16,6 +16,7 @@ use config::Config;
 use std::{
     fs,
     path::{Path, PathBuf},
+    time::Instant,
 };
 use tempfile::tempdir;
 use tokio;
@@ -136,6 +137,7 @@ async fn nosubcommand(args: Args) -> Result<()> {
                 patch_folder
             ));
         }
+        let start = Instant::now();
         utils::copy_dir_all(patch_path, tmp_dir.path(), args.dry_run)
             .with_context(|| format!("Failed to copy patch folder '{}'", patch_folder))?;
         utils::handle_deletions(
@@ -152,6 +154,8 @@ async fn nosubcommand(args: Args) -> Result<()> {
             "file",
             args.dry_run,
         )?;
+        let duration = start.elapsed();
+        utils::print_info(&format!("⏱️ Patch applied in {:.2?}", duration).to_string());
     }
     let kept_path = tmp_dir.keep();
     utils::print_section("✅ PATCHING COMPLETE");

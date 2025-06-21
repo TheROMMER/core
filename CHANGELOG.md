@@ -12,3 +12,4 @@
 
 # WIP
 - Added per-patch optional config file (patch.yaml) which specifies patch name, version, author and required android version (>=, <=, >, <, etc.).
+- Added "Patch took {} to apply" which tells each patch took how much to apply (in my case, 42 microseconds :3)
