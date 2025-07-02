@@ -47,7 +47,7 @@ cargo install rommer
 
 From source:
 ```bash
-git clone https://github.com/TheROMMER/core.git
+git clone https://github.com/TheROMMER/core.git rommer
 cd rommer
 cargo install --path .
 ```
