@@ -9,7 +9,7 @@ version = "1.0.0"
 edition = "2024"
 
 [dependencies]
-anyhow = "1.0.98"
+anyhow = "1.0.99"
 clap = { version = "4.5.43", features = ["derive"] }
 futures-util = "0.3.31"
 indicatif = "0.17.11"
